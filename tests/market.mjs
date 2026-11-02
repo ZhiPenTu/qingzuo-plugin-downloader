@@ -22,7 +22,7 @@ let host;
 try {
   host = await launchHost(executablePath);
   const page = host.page;
-  await page.getByRole('button', { name: '插件市场', exact: true }).click();
+  await page.getByRole('button', { name: '浏览全部工具', exact: true }).click();
   const card = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: '文件下载器', exact: true }) });
   await expect(card).toBeVisible({ timeout: 120000 });
   await card.getByRole('button', { name: '安装插件', exact: true }).click();
@@ -34,7 +34,7 @@ try {
     return null;
   }, { timeout: 120000 }).toMatchObject({ source: 'market', enabled: true, version: pluginVersion });
   await patchRuntime(host.app, { directory: downloadDirectory, origin: server.origin });
-  await page.getByRole('button', { name: '工具中心', exact: true }).click();
+  await page.getByRole('tab', { name: '已安装', exact: true }).click();
   const installedCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: '文件下载器', exact: true }) });
   await installedCard.getByRole('button', { name: /^打开(?:工具)?$/ }).click();
   await expect.poll(() => host.app.context().pages().some(candidate => candidate.url().startsWith('commerce-plugin://official.downloader/'))).toBe(true);
