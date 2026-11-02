@@ -38,24 +38,36 @@ jobs:
           cache: npm
       - name: Verify pinned host and SDK provenance
         run: node scripts/verify-release-inputs.mjs
-      - uses: actions/download-artifact@v4
-        with:
-          repository: ZhiPenTu/qingzuo-desktop
-          run-id: ${{ env.QINGZUO_HOST_RUN_ID }}
-          github-token: ${{ github.token }}
-          name: Commerce-${{ runner.os }}
-          path: host
-      - name: Prepare host outside the plugin source directory
+      - name: Download pinned host release
         run: |
+          mkdir -p host
+          version="${QINGZUO_HOST_VERSION#v}"
           if [[ "$RUNNER_OS" == macOS ]]; then
-            archive=$(find host/desktop -maxdepth 1 -name 'CommerceTools-*-mac-arm64.zip' -print -quit)
-            test -n "$archive"
-            ditto -x -k "$archive" "$RUNNER_TEMP/qingzuo-runtime"
-            echo "QINGZUO_HOST_EXECUTABLE=$RUNNER_TEMP/qingzuo-runtime/Qingzuo.app/Contents/MacOS/Qingzuo" >> "$GITHUB_ENV"
+            asset="CommerceTools-${version}-mac-arm64.zip"
           else
-            node --input-type=module -e "import {cp} from 'node:fs/promises';import path from 'node:path';await cp('host/desktop/win-unpacked',path.join(process.env.RUNNER_TEMP,'qingzuo-runtime'),{recursive:true});"
-            echo "QINGZUO_HOST_EXECUTABLE=$RUNNER_TEMP/qingzuo-runtime/Qingzuo.exe" >> "$GITHUB_ENV"
+            asset="CommerceTools-${version}-win-x64.exe"
           fi
+          curl --fail --location --retry 3 --output "host/$asset" "https://github.com/ZhiPenTu/qingzuo-desktop/releases/download/$QINGZUO_HOST_VERSION/$asset"
+      - name: Prepare macOS host outside the plugin source directory
+        if: runner.os == 'macOS'
+        run: |
+          archive=$(find host -maxdepth 1 -name 'CommerceTools-*-mac-arm64.zip' -print -quit)
+          test -n "$archive"
+          ditto -x -k "$archive" "$RUNNER_TEMP/qingzuo-runtime"
+          test -x "$RUNNER_TEMP/qingzuo-runtime/Qingzuo.app/Contents/MacOS/Qingzuo"
+          echo "QINGZUO_HOST_EXECUTABLE=$RUNNER_TEMP/qingzuo-runtime/Qingzuo.app/Contents/MacOS/Qingzuo" >> "$GITHUB_ENV"
+      - name: Install Windows host outside the plugin source directory
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem host -Filter 'CommerceTools-*-win-x64.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Pinned Windows installer not found.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'qingzuo-runtime'
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S','/currentuser',"/D=$destination" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer failed with exit code $($process.ExitCode)." }
+          $executable = Join-Path $destination 'Qingzuo.exe'
+          if (-not (Test-Path $executable)) { throw 'Installed Qingzuo.exe not found.' }
+          "QINGZUO_HOST_EXECUTABLE=$executable" >> $env:GITHUB_ENV
       - name: Build and verify plugin
         run: |
           npm ci --ignore-scripts
