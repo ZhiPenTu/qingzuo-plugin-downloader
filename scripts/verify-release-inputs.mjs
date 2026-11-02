@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repository = 'ZhiPenTu/qingzuo-desktop';
 const hostVersion = process.env.QINGZUO_HOST_VERSION || 'v0.6.21';
-const sdkVersion = 'v1.8.0';
+const sdkVersion = 'sdk-v1.8.0';
 const lock = JSON.parse(await readFile(path.join(root, 'vendor/sdk.lock.json'), 'utf8'));
 const json = args => JSON.parse(execFileSync('gh', args, { encoding: 'utf8' }));
 assert.match(hostVersion, /^v\d+\.\d+\.\d+$/);
